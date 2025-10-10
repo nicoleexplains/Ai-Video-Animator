@@ -1,0 +1,5 @@
+{
+  "name": "AI Video Animator",
+  "description": "An application that animates a static photo file into a short video clip using AI, without requiring a user prompt.",
+  "requestFramePermissions": []
+}
