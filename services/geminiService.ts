@@ -13,7 +13,7 @@ const POLLING_INTERVAL_MS = 10000;
 export const animateImage = async (
   imageFile: File,
   onProgress: (message: string) => void
-): Promise<string> => {
+): Promise<Blob> => {
   try {
     const base64Image = await fileToBase64(imageFile);
 
@@ -53,7 +53,7 @@ export const animateImage = async (
     }
 
     const videoBlob = await response.blob();
-    return URL.createObjectURL(videoBlob);
+    return videoBlob;
 
   } catch (error) {
     console.error("Error in Gemini Service:", error);

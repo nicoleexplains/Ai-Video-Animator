@@ -3,14 +3,23 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { VideoPlayer } from './components/VideoPlayer';
+import { VideoHistory } from './components/VideoHistory';
 import { animateImage } from './services/geminiService';
 import { SparklesIcon } from './components/icons';
+import { fileToBase64, blobToBase64 } from './utils/fileUtils';
 
 enum AppState {
   IDLE,
   ANIMATING,
   SUCCESS,
   ERROR,
+}
+
+export interface HistoryItem {
+  id: string;
+  imageBase64: string;
+  videoBase64: string;
+  videoMimeType: string;
 }
 
 const LOADING_MESSAGES = [
@@ -29,6 +38,34 @@ const App: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Load history from localStorage on initial mount
+  useEffect(() => {
+    try {
+      const storedHistory = localStorage.getItem('ai-video-animator-history');
+      if (storedHistory) {
+        setHistory(JSON.parse(storedHistory));
+      }
+    } catch (e) {
+      console.error("Failed to load history from localStorage", e);
+      // If parsing fails, clear the corrupted data
+      localStorage.removeItem('ai-video-animator-history');
+    }
+  }, []);
+
+  // Save history to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (history.length > 0) {
+        localStorage.setItem('ai-video-animator-history', JSON.stringify(history));
+      } else {
+        localStorage.removeItem('ai-video-animator-history');
+      }
+    } catch (e) {
+       console.error("Failed to save history to localStorage", e);
+    }
+  }, [history]);
 
   useEffect(() => {
     if (appState === AppState.ANIMATING) {
@@ -60,11 +97,25 @@ const App: React.FC = () => {
     setLoadingMessage(LOADING_MESSAGES[0]);
 
     try {
-      const generatedVideoUrl = await animateImage(imageFile, (message) => {
+      const videoBlob = await animateImage(imageFile, (message) => {
         setLoadingMessage(message);
       });
+
+      const generatedVideoUrl = URL.createObjectURL(videoBlob);
       setVideoUrl(generatedVideoUrl);
       setAppState(AppState.SUCCESS);
+
+      // Save to history
+      const imageBase64 = await fileToBase64(imageFile);
+      const videoBase64 = await blobToBase64(videoBlob);
+      const newItem: HistoryItem = {
+        id: Date.now().toString(),
+        imageBase64,
+        videoBase64,
+        videoMimeType: videoBlob.type,
+      };
+      setHistory(prev => [newItem, ...prev]);
+
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred during animation.');
@@ -84,6 +135,33 @@ const App: React.FC = () => {
     setImagePreviewUrl(null);
     setVideoUrl(null);
     setError(null);
+  };
+
+  const handleSelectHistoryItem = (item: HistoryItem) => {
+    const byteCharacters = atob(item.videoBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], {type: item.videoMimeType});
+    const url = URL.createObjectURL(blob);
+
+    if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+    }
+    
+    setVideoUrl(url);
+    setAppState(AppState.SUCCESS);
+    setImageFile(null);
+    setImagePreviewUrl(null);
+
+    // Scroll to the top to see the player
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
   };
   
   const renderContent = () => {
@@ -134,6 +212,11 @@ const App: React.FC = () => {
         <main className="bg-slate-800/50 p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 backdrop-blur-sm">
           {renderContent()}
         </main>
+        <VideoHistory 
+          history={history}
+          onSelect={handleSelectHistoryItem}
+          onClear={handleClearHistory}
+        />
         <footer className="text-center mt-8 text-slate-500 text-sm">
           <p>Powered by Google Gemini</p>
         </footer>
