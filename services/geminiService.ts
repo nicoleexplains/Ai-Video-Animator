@@ -20,7 +20,7 @@ export const animateImage = async (
     onProgress("Starting video generation...");
 
     let operation = await ai.models.generateVideos({
-      model: 'veo-2.0-generate-001',
+      model: 'veo-3.1-fast-generate-preview',
       prompt: 'Animate this image with subtle, cinematic motion, bringing it to life.',
       image: {
         imageBytes: base64Image,
