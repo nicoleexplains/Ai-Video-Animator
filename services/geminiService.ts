@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { fileToBase64 } from "../utils/fileUtils";
+import { fileToBase64, getImageDimensions } from "../utils/fileUtils";
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -15,7 +15,14 @@ export const animateImage = async (
   onProgress: (message: string) => void
 ): Promise<Blob> => {
   try {
-    const base64Image = await fileToBase64(imageFile);
+    onProgress("Analyzing image properties...");
+
+    const [base64Image, dimensions] = await Promise.all([
+      fileToBase64(imageFile),
+      getImageDimensions(imageFile)
+    ]);
+
+    const aspectRatio = dimensions.width > dimensions.height ? '16:9' : '9:16';
 
     onProgress("Starting video generation...");
 
@@ -27,7 +34,9 @@ export const animateImage = async (
         mimeType: imageFile.type,
       },
       config: {
-        numberOfVideos: 1
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: aspectRatio,
       }
     });
 

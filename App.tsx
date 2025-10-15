@@ -31,6 +31,8 @@ const LOADING_MESSAGES = [
     "This can take a few minutes, hang tight!",
 ];
 
+const HISTORY_LIMIT = 5;
+
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -114,7 +116,7 @@ const App: React.FC = () => {
         videoBase64,
         videoMimeType: videoBlob.type,
       };
-      setHistory(prev => [newItem, ...prev]);
+      setHistory(prev => [newItem, ...prev].slice(0, HISTORY_LIMIT));
 
     } catch (err) {
       console.error(err);
