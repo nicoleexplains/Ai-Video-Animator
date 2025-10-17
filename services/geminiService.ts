@@ -53,12 +53,13 @@ export const animateImage = async (
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
 
     if (!downloadLink) {
-      throw new Error("Video generation completed, but no download link was found.");
+      throw new Error("Video generation succeeded, but no download link was returned.");
     }
-
+    
+    onProgress("Downloading your video...");
     const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
     if (!response.ok) {
-        throw new Error(`Failed to download video: ${response.statusText}`);
+        throw new Error(`Download failed with status ${response.status}: ${response.statusText}`);
     }
 
     const videoBlob = await response.blob();
@@ -66,9 +67,37 @@ export const animateImage = async (
 
   } catch (error) {
     console.error("Error in Gemini Service:", error);
+
+    let userFriendlyMessage = "An unexpected error occurred during the animation process. Please try again.";
+
     if (error instanceof Error) {
-        throw new Error(`Failed to animate image: ${error.message}`);
+        const msg = error.message.toLowerCase();
+
+        // Check for file-related issues from utils
+        if (msg.includes('failed to read file') || msg.includes('could not read image file')) {
+            userFriendlyMessage = "The uploaded file appears to be corrupted or is in an unsupported format. Please try a different image.";
+        }
+        // Google API specific errors
+        else if (msg.includes('api key not valid')) {
+            userFriendlyMessage = "Authentication with the AI service failed. This is a configuration issue.";
+        } else if (msg.includes('rate limit') || msg.includes('resource has been exhausted')) {
+            userFriendlyMessage = "The animation service is currently experiencing high demand. Please wait a moment and try again.";
+        } else if (msg.includes('deadline exceeded') || msg.includes('503 service unavailable')) {
+            userFriendlyMessage = "The request timed out as the service is temporarily unavailable. Please try again later.";
+        }
+        // Custom app errors
+        else if (msg.startsWith('download failed with status')) {
+            userFriendlyMessage = "Failed to retrieve the final video, which may be due to a network issue. Please check your connection and try again.";
+        }
+        else if (msg.includes('no download link was returned')) {
+            userFriendlyMessage = "The AI was unable to create an animation from this specific image. Please try a different one.";
+        }
+         // A more generic but still informative fallback
+        else {
+             userFriendlyMessage = `A technical issue occurred: ${error.message}`;
+        }
     }
-    throw new Error("An unknown error occurred while communicating with the AI service.");
+
+    throw new Error(userFriendlyMessage);
   }
 };
