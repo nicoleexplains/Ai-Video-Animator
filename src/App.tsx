@@ -43,7 +43,6 @@ const App: React.FC = () => {
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [apiKeyReady, setApiKeyReady] = useState(false);
-  // Fix: Add progress state for the loading indicator
   const [progress, setProgress] = useState(0);
 
   // Check for API key on mount
@@ -107,7 +106,6 @@ const App: React.FC = () => {
     setVideoUrl(null);
     setVideoBlob(null);
     setError(null);
-    // Fix: Reset progress when a new image is uploaded
     setProgress(0);
   };
 
@@ -116,12 +114,10 @@ const App: React.FC = () => {
 
     setAppState(AppState.ANIMATING);
     setError(null);
-    // Fix: Reset progress before starting animation
     setProgress(0);
     setLoadingMessage(LOADING_MESSAGES[0]);
 
     try {
-      // Fix: Pass setProgress to animateImage to update progress
       const generatedVideoBlob = await animateImage(imageFile, setProgress);
       
       setVideoBlob(generatedVideoBlob);
@@ -154,7 +150,6 @@ const App: React.FC = () => {
       setError(errorMessage);
       setAppState(AppState.ERROR);
     } finally {
-        // Fix: Reset progress after animation finishes or fails
         setProgress(0);
     }
   }, [imageFile]);
@@ -172,7 +167,6 @@ const App: React.FC = () => {
     setVideoUrl(null);
     setVideoBlob(null);
     setError(null);
-    // Fix: Reset progress on reset
     setProgress(0);
   };
 
@@ -195,7 +189,6 @@ const App: React.FC = () => {
     setAppState(AppState.SUCCESS);
     setImageFile(null);
     setImagePreviewUrl(null);
-    // Fix: Reset progress when selecting a history item
     setProgress(0);
 
     // Scroll to the top to see the player
@@ -218,7 +211,6 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (appState) {
       case AppState.ANIMATING:
-        // Fix: Pass the progress state to the LoadingIndicator component
         return <LoadingIndicator message={loadingMessage} imagePreviewUrl={imagePreviewUrl} progress={progress} />;
       case AppState.SUCCESS:
         return videoUrl ? <VideoPlayer videoUrl={videoUrl} videoBlob={videoBlob} onReset={handleReset} /> : null;
@@ -241,6 +233,7 @@ const App: React.FC = () => {
           <ImageUploader
             onImageUpload={handleImageUpload}
             onAnimate={handleAnimate}
+            // Fix: Set isAnimating to false directly since this component only renders in the IDLE state.
             isAnimating={false}
             imagePreviewUrl={imagePreviewUrl}
             hasImage={!!imageFile}

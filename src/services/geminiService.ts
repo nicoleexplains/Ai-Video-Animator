@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { fileToBase64, getImageDimensions } from "../utils/fileUtils";
 
@@ -7,12 +6,12 @@ if (!process.env.API_KEY) {
 }
 
 const POLLING_INTERVAL_MS = 10000;
-// Fix: Add expected duration for progress simulation
+// Average expected duration for the animation process in milliseconds (e.g., 2 minutes)
 const EXPECTED_ANIMATION_DURATION_MS = 120000;
+
 
 export const animateImage = async (
   imageFile: File,
-  // Fix: Add onProgress callback to update loading state
   onProgress: (progress: number) => void
 ): Promise<Blob> => {
   try {
@@ -47,7 +46,7 @@ export const animateImage = async (
       await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
       operation = await ai.operations.getVideosOperation({ operation: operation });
       
-      // Fix: Simulate progress based on elapsed time
+      // Simulate progress based on elapsed time
       const elapsedTime = Date.now() - startTime;
       // Progresses from 5% to 95% over the expected duration.
       const simulatedProgress = Math.min(95, 5 + (90 * (elapsedTime / EXPECTED_ANIMATION_DURATION_MS)));
@@ -98,7 +97,7 @@ export const animateImage = async (
         
         const lowerCaseMessage = effectiveMessage.toLowerCase();
 
-        // Let App.tsx handle this specific API key error by re-throwing it.
+        // Fix: Let App.tsx handle this specific API key error by re-throwing it.
         if (lowerCaseMessage.includes("requested entity was not found")) {
             throw error;
         }

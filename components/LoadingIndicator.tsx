@@ -1,12 +1,12 @@
-
 import React from 'react';
 
 interface LoadingIndicatorProps {
   message: string;
   imagePreviewUrl: string | null;
+  progress: number;
 }
 
-export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ message, imagePreviewUrl }) => {
+export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ message, imagePreviewUrl, progress }) => {
   return (
     <div className="flex flex-col items-center text-center">
       {imagePreviewUrl && (
@@ -42,7 +42,14 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ message, ima
       )}
      
       <h2 className="text-xl font-semibold text-white mb-2">Creating your animation...</h2>
-      <p className="text-slate-400">{message}</p>
+      <p className="text-slate-400 mb-4">{message}</p>
+      
+      <div className="w-full bg-slate-700 rounded-full h-2.5">
+        <div 
+          className="bg-brand-500 h-2.5 rounded-full transition-all duration-500 ease-out" 
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
     </div>
   );
 };
