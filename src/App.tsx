@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { LoadingIndicator } from './components/LoadingIndicator';
@@ -20,6 +19,8 @@ export interface HistoryItem {
   imageBase64: string;
   videoBase64: string;
   videoMimeType: string;
+  generationTime: number;
+  modelUsed: string;
 }
 
 const LOADING_MESSAGES = [
@@ -44,6 +45,8 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [apiKeyReady, setApiKeyReady] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [generationTime, setGenerationTime] = useState<number | null>(null);
+  const [modelUsed, setModelUsed] = useState<string | null>(null);
 
   // Check for API key on mount
   useEffect(() => {
@@ -72,19 +75,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Save history to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      if (history.length > 0) {
-        localStorage.setItem('ai-video-animator-history', JSON.stringify(history));
-      } else {
-        localStorage.removeItem('ai-video-animator-history');
-      }
-    } catch (e) {
-       console.error("Failed to save history to localStorage", e);
-    }
-  }, [history]);
-
   useEffect(() => {
     if (appState === AppState.ANIMATING) {
       const intervalId = setInterval(() => {
@@ -97,6 +87,42 @@ const App: React.FC = () => {
       return () => clearInterval(intervalId);
     }
   }, [appState]);
+
+  const updateAndSaveHistory = useCallback((newItem: HistoryItem) => {
+    setHistory(currentHistory => {
+        const newHistory = [newItem, ...currentHistory].slice(0, HISTORY_LIMIT);
+        
+        let historyToSave = [...newHistory];
+        
+        while (historyToSave.length > 0) {
+            try {
+                localStorage.setItem('ai-video-animator-history', JSON.stringify(historyToSave));
+                // Succeeded, this is the new state.
+                return historyToSave;
+            } catch (e: any) {
+                // A more robust check for quota exceeded error across browsers and environments.
+                const isQuotaError = e && (
+                    e.name === 'QuotaExceededError' ||
+                    e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                    (typeof e.message === 'string' && e.message.toLowerCase().includes('quota'))
+                );
+
+                if (isQuotaError) {
+                    console.warn('LocalStorage quota exceeded. Removing oldest history item to make space.');
+                    historyToSave.pop(); // remove oldest and try again in the next loop iteration
+                } else {
+                    console.error("Failed to save history to localStorage", e);
+                    // On other errors, just return the new history without saving, which is better than crashing.
+                    return newHistory;
+                }
+            }
+        }
+
+        // If we end up here, it means even saving one item failed, or we trimmed it down to empty.
+        localStorage.removeItem('ai-video-animator-history');
+        return historyToSave;
+    });
+  }, []);
 
   const handleImageUpload = (file: File) => {
     setImageFile(file);
@@ -117,13 +143,17 @@ const App: React.FC = () => {
     setProgress(0);
     setLoadingMessage(LOADING_MESSAGES[0]);
 
+    const startTime = Date.now();
     try {
-      const generatedVideoBlob = await animateImage(imageFile, setProgress);
+      const { videoBlob: generatedVideoBlob, model } = await animateImage(imageFile, setProgress);
+      const duration = Date.now() - startTime;
       
       setVideoBlob(generatedVideoBlob);
       const generatedVideoUrl = URL.createObjectURL(generatedVideoBlob);
       setVideoUrl(generatedVideoUrl);
       setAppState(AppState.SUCCESS);
+      setGenerationTime(duration);
+      setModelUsed(model);
 
       // Save to history
       const imageBase64 = await fileToBase64(imageFile);
@@ -133,8 +163,10 @@ const App: React.FC = () => {
         imageBase64,
         videoBase64,
         videoMimeType: generatedVideoBlob.type,
+        generationTime: duration,
+        modelUsed: model,
       };
-      setHistory(prev => [newItem, ...prev].slice(0, HISTORY_LIMIT));
+      updateAndSaveHistory(newItem);
 
     } catch (err) {
       console.error(err);
@@ -152,7 +184,7 @@ const App: React.FC = () => {
     } finally {
         setProgress(0);
     }
-  }, [imageFile]);
+  }, [imageFile, updateAndSaveHistory]);
 
   const handleReset = () => {
     if (imagePreviewUrl) {
@@ -168,6 +200,8 @@ const App: React.FC = () => {
     setVideoBlob(null);
     setError(null);
     setProgress(0);
+    setGenerationTime(null);
+    setModelUsed(null);
   };
 
   const handleSelectHistoryItem = (item: HistoryItem) => {
@@ -190,6 +224,8 @@ const App: React.FC = () => {
     setImageFile(null);
     setImagePreviewUrl(null);
     setProgress(0);
+    setGenerationTime(item.generationTime);
+    setModelUsed(item.modelUsed);
 
     // Scroll to the top to see the player
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -197,6 +233,11 @@ const App: React.FC = () => {
 
   const handleClearHistory = () => {
     setHistory([]);
+    try {
+      localStorage.removeItem('ai-video-animator-history');
+    } catch(e) {
+      console.error("Failed to clear history from localStorage", e);
+    }
   };
 
   const handleSelectKey = async () => {
@@ -213,7 +254,15 @@ const App: React.FC = () => {
       case AppState.ANIMATING:
         return <LoadingIndicator message={loadingMessage} imagePreviewUrl={imagePreviewUrl} progress={progress} />;
       case AppState.SUCCESS:
-        return videoUrl ? <VideoPlayer videoUrl={videoUrl} videoBlob={videoBlob} onReset={handleReset} /> : null;
+        return videoUrl ? (
+          <VideoPlayer 
+            videoUrl={videoUrl} 
+            videoBlob={videoBlob} 
+            onReset={handleReset} 
+            generationTime={generationTime}
+            modelUsed={modelUsed}
+          />
+        ) : null;
       case AppState.ERROR:
         return (
           <div className="text-center">
@@ -233,7 +282,6 @@ const App: React.FC = () => {
           <ImageUploader
             onImageUpload={handleImageUpload}
             onAnimate={handleAnimate}
-            // Fix: Set isAnimating to false directly since this component only renders in the IDLE state.
             isAnimating={false}
             imagePreviewUrl={imagePreviewUrl}
             hasImage={!!imageFile}

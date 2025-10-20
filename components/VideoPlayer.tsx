@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DownloadIcon, RefreshIcon, ShareIcon } from './icons';
 
@@ -6,9 +5,12 @@ interface VideoPlayerProps {
   videoUrl: string;
   videoBlob: Blob | null;
   onReset: () => void;
+  generationTime: number | null;
+  modelUsed: string | null;
+  originalImageUrl: string | null;
 }
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, videoBlob, onReset }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, videoBlob, onReset, generationTime, modelUsed, originalImageUrl }) => {
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const handleShare = async () => {
@@ -55,9 +57,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, videoBlob, o
   return (
     <div className="flex flex-col items-center">
       <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-cyan-300 mb-4">Animation Complete!</h2>
-      <div className="w-full aspect-video rounded-lg overflow-hidden shadow-2xl border-2 border-slate-700">
-        <video src={videoUrl} controls autoPlay loop className="w-full h-full bg-black"></video>
+      
+      <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        {originalImageUrl && (
+            <div className="w-full aspect-video rounded-lg overflow-hidden shadow-lg border-2 border-slate-700 bg-slate-900 flex flex-col items-center justify-center">
+                <img src={originalImageUrl} alt="Original image" className="max-w-full max-h-full object-contain" />
+                <p className="text-xs text-slate-400 font-semibold absolute bottom-2 bg-black/50 px-2 py-1 rounded">Original</p>
+            </div>
+        )}
+        <div className={`w-full aspect-video rounded-lg overflow-hidden shadow-2xl border-2 border-slate-700 relative ${!originalImageUrl ? 'md:col-span-2' : ''}`}>
+          <video src={videoUrl} controls autoPlay loop className="w-full h-full bg-black"></video>
+          {originalImageUrl && <p className="text-xs text-slate-400 font-semibold absolute bottom-2 right-2 bg-black/50 px-2 py-1 rounded">Animated</p>}
+        </div>
       </div>
+
       <div className="mt-6 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
         <a
           href={videoUrl}
@@ -82,6 +95,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, videoBlob, o
           <RefreshIcon className="w-5 h-5" />
           Animate Another
         </button>
+      </div>
+
+      <div className="mt-8 w-full border-t border-slate-700 pt-4 text-sm text-slate-400">
+        {(generationTime || modelUsed) && (
+            <div className="space-y-2">
+                <h3 className="font-semibold text-slate-300 mb-2">Generation Details</h3>
+                {generationTime && (
+                    <div className="flex justify-between items-center">
+                        <span>Time Taken</span>
+                        <span className="font-mono text-slate-300 bg-slate-700/50 px-2 py-1 rounded">
+                            ~{(generationTime / 1000).toFixed(1)} seconds
+                        </span>
+                    </div>
+                )}
+                {modelUsed && (
+                    <div className="flex justify-between items-center">
+                        <span>Model</span>
+                        <span className="font-mono text-slate-300 bg-slate-700/50 px-2 py-1 rounded">
+                            {modelUsed}
+                        </span>
+                    </div>
+                )}
+            </div>
+        )}
       </div>
     </div>
   );

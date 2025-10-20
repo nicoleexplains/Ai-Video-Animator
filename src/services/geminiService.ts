@@ -6,14 +6,14 @@ if (!process.env.API_KEY) {
 }
 
 const POLLING_INTERVAL_MS = 10000;
-// Average expected duration for the animation process in milliseconds (e.g., 2 minutes)
 const EXPECTED_ANIMATION_DURATION_MS = 120000;
+const VEO_MODEL = 'veo-3.1-fast-generate-preview';
 
 
 export const animateImage = async (
   imageFile: File,
   onProgress: (progress: number) => void
-): Promise<Blob> => {
+): Promise<{ videoBlob: Blob, model: string }> => {
   try {
     const startTime = Date.now();
     // Create a new GoogleGenAI instance for each API call to ensure the latest API key is used.
@@ -29,7 +29,7 @@ export const animateImage = async (
     const aspectRatio = dimensions.width > dimensions.height ? '16:9' : '9:16';
 
     let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
+      model: VEO_MODEL,
       prompt: 'Animate this image with subtle, cinematic motion, bringing it to life.',
       image: {
         imageBytes: base64Image,
@@ -68,7 +68,7 @@ export const animateImage = async (
     }
 
     const videoBlob = await response.blob();
-    return videoBlob;
+    return { videoBlob, model: VEO_MODEL };
 
   } catch (error) {
     console.error("Error in Gemini Service:", error);
@@ -97,7 +97,6 @@ export const animateImage = async (
         
         const lowerCaseMessage = effectiveMessage.toLowerCase();
 
-        // Fix: Let App.tsx handle this specific API key error by re-throwing it.
         if (lowerCaseMessage.includes("requested entity was not found")) {
             throw error;
         }
